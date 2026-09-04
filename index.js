@@ -184,65 +184,89 @@ const server = http.createServer((_0x395629, _0x38514c) => {
   }
   if (_0x564800 === "/api/connect" && _0x395629.method === "POST") {
     let _0x37c561 = "";
+    let _0xbodyTooLarge = false;
     _0x395629.on("data", _0x5e15d6 => {
       _0x37c561 += _0x5e15d6.toString();
+      if (_0x37c561.length > 10000) _0xbodyTooLarge = true;
     });
     _0x395629.on("end", async () => {
-      try {
-        const {
-          number: _0x149e62
-        } = JSON.parse(_0x37c561);
-        const _0x317449 = _0x149e62 ? _0x149e62.replace(/\D/g, "") : "";
-        if (!_0x317449 || _0x317449.length < 5) {
-          _0x38514c.writeHead(200, {
-            "Content-Type": "application/json"
-          });
-          return _0x38514c.end(JSON.stringify({
-            success: false,
-            message: "Please enter a valid WhatsApp number!"
-          }));
-        }
-        let _0x3fe66a = "Error";
-        try {
-          delete require.cache[require.resolve("./rentbot.js")];
-          const _0x4f581f = require("./rentbot.js");
-          const _0x3428ee = _0x4f581f.startpairing || _0x4f581f;
-          await _0x3428ee(_0x317449 + "@s.whatsapp.net");
-          await new Promise(_0x4108f7 => setTimeout(_0x4108f7, 3000));
-          if (fs.existsSync("./lib2/pairing/pairing.json")) {
-            const _0x2da5ab = JSON.parse(fs.readFileSync("./lib2/pairing/pairing.json", "utf-8"));
-            _0x3fe66a = _0x2da5ab.code || "No code";
-          }
-        } catch (_0x4224ff) {
-          console.error("Bot error:", _0x4224ff.message);
-        }
-        let _0x36b214 = global.cache.sessionCount || 0;
-        if (fs.existsSync("./lib2/pairing")) {
-          const _0x39b406 = fs.readdirSync("./lib2/pairing", {
-            withFileTypes: true
-          });
-          _0x36b214 = _0x39b406.filter(_0x24c113 => _0x24c113.isDirectory()).length;
-          global.cache.sessionCount = _0x36b214;
-        }
+      const sendJSON = (_0xpayload) => {
         _0x38514c.writeHead(200, {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*"
         });
-        _0x38514c.end(JSON.stringify({
+        _0x38514c.end(JSON.stringify(_0xpayload));
+      };
+      try {
+        if (_0xbodyTooLarge) return sendJSON({ success: false, message: "Invalid request" });
+        const { number: _0x149e62 } = JSON.parse(_0x37c561 || "{}");
+        const _0x317449 = _0x149e62 ? String(_0x149e62).replace(/\D/g, "") : "";
+        if (!_0x317449 || _0x317449.length < 8 || _0x317449.length > 15) {
+          return sendJSON({ success: false, message: "Enter a valid number with country code, for example 923001234567." });
+        }
+
+        const _0xcodeFile = path.join(__dirname, "lib2", "pairing", "pairing.json");
+        // Remove only the temporary code file. The old 3-second wait was shorter
+        // than rentbot's own pairing request delay, so the page returned "Error"
+        // before WhatsApp had a chance to create a code.
+        try { if (fs.existsSync(_0xcodeFile)) fs.unlinkSync(_0xcodeFile); } catch (_) {}
+
+        let _0xstartError = null;
+        try {
+          const _0x4f581f = require("./rentbot.js");
+          const _0x3428ee = _0x4f581f.startpairing || _0x4f581f;
+          await _0x3428ee(_0x317449 + "@s.whatsapp.net");
+        } catch (_0x4224ff) {
+          _0xstartError = _0x4224ff;
+          console.error("Bot pairing start error:", _0x4224ff.message);
+        }
+        if (_0xstartError) {
+          return sendJSON({ success: false, message: "Could not start pairing: " + (_0xstartError.message || "unknown error") });
+        }
+
+        // Wait up to 30 seconds for the socket to connect and WhatsApp to return
+        // the pairing code. Polling avoids a fixed, unreliable sleep.
+        const _0xdeadline = Date.now() + 30000;
+        let _0x3fe66a = "";
+        while (Date.now() < _0xdeadline) {
+          try {
+            if (fs.existsSync(_0xcodeFile)) {
+              const _0x2da5ab = JSON.parse(fs.readFileSync(_0xcodeFile, "utf-8"));
+              const _0xcandidate = String(_0x2da5ab.code || "").trim();
+              if (_0xcandidate && _0xcandidate !== "Error" && _0xcandidate !== "No code") {
+                _0x3fe66a = _0xcandidate;
+                break;
+              }
+            }
+          } catch (_) {}
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        let _0x36b214 = global.cache.sessionCount || 0;
+        try {
+          if (fs.existsSync("./lib2/pairing")) {
+            const _0x39b406 = fs.readdirSync("./lib2/pairing", { withFileTypes: true });
+            _0x36b214 = _0x39b406.filter(_0x24c113 => _0x24c113.isDirectory()).length;
+            global.cache.sessionCount = _0x36b214;
+          }
+        } catch (_) {}
+
+        if (!_0x3fe66a) {
+          return sendJSON({
+            success: false,
+            message: "Pairing code was not received yet. Make sure the server can connect to WhatsApp, then try again."
+          });
+        }
+
+        return sendJSON({
           success: true,
           code: _0x3fe66a,
           number: _0x317449,
           connectedUsers: _0x36b214
-        }));
-      } catch (_0x49e7aa) {
-        _0x38514c.writeHead(200, {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
         });
-        _0x38514c.end(JSON.stringify({
-          success: false,
-          message: "Error: " + _0x49e7aa.message
-        }));
+      } catch (_0x49e7aa) {
+        console.error("Pairing API error:", _0x49e7aa.message);
+        return sendJSON({ success: false, message: "Error: " + _0x49e7aa.message });
       }
     });
     return;
