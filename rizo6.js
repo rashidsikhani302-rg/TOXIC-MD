@@ -480,13 +480,28 @@ module.exports = async (_0x106db2, _0x11be99) => {
         return false;
       }
     }
-    const MENU_IMAGE_PATH = path.join(__dirname, "assets", "menu.jpg");
+    const MENU_IMAGE_DIR = path.join(__dirname, "assets");
     const MENU_IMAGE_URL = "https://70.up.railway.app/menu.jpg";
-    async function getMenuThumb() {
+    const MENU_IMAGE_FILES = {
+      main: "main.jpg",
+      downloader: "downloader.jpg",
+      tools: "tools.jpg",
+      logo: "logo.jpg",
+      settings: "settings.jpg",
+      group: "group.jpg"
+    };
+    async function getMenuThumb(category = "main") {
       try {
-        if (fs.existsSync(MENU_IMAGE_PATH)) {
-          const _0xmenuBuf = fs.readFileSync(MENU_IMAGE_PATH);
+        const _0xmenuFile = MENU_IMAGE_FILES[category] || MENU_IMAGE_FILES.main;
+        const _0xmenuPath = path.join(MENU_IMAGE_DIR, _0xmenuFile);
+        if (fs.existsSync(_0xmenuPath)) {
+          const _0xmenuBuf = fs.readFileSync(_0xmenuPath);
           if (_0xmenuBuf.length > 1000) return _0xmenuBuf;
+        }
+        const _0xfallbackPath = path.join(MENU_IMAGE_DIR, "menu.jpg");
+        if (fs.existsSync(_0xfallbackPath)) {
+          const _0xfallbackBuf = fs.readFileSync(_0xfallbackPath);
+          if (_0xfallbackBuf.length > 1000) return _0xfallbackBuf;
         }
       } catch (_0xmenuErr) {
         console.error("Local menu image read failed:", _0xmenuErr.message);
@@ -1350,17 +1365,14 @@ module.exports = async (_0x106db2, _0x11be99) => {
         {
           try {
             await _0x1bf22f("🏠");
-            let _0x30497a = await getMenuThumb();
+            let _0x30497a = await getMenuThumb("main");
+            let _0x30497aMedia = _0x30497a ? await prepareWAMessageMedia({ image: _0x30497a }, { upload: _0x106db2.waUploadToServer }) : null;
             const _0x33bbac = generateWAMessageFromContent(_0x11be99.chat, {
               buttonsMessage: {
                 contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + "* ✧⎠⎠\n║┃\n║┃ 👑 *Owner:* " + global.Developer + "\n║┃ 👤 *User:* " + _0x2ea648 + "\n║┃ 🕐 *Time:* " + moment().tz("Asia/Karachi").format("hh:mm A") + "\n║┃\n║┃ 📌 *Select a category below*\n║┃\n║┃  \n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Choose an option:*",
                 footerText: "powered by " + global.Developer,
-                headerType: 6,
-                locationMessage: {
-                  name: global.Developer + " 💫💗",
-                  address: "📍 Developer",
-                  jpegThumbnail: _0x30497a
-                },
+                headerType: _0x30497aMedia ? 4 : 1,
+                imageMessage: _0x30497aMedia?.imageMessage,
                 buttons: [{
                   buttonId: "menu_selector",
                   buttonText: {
@@ -1440,17 +1452,14 @@ module.exports = async (_0x106db2, _0x11be99) => {
         {
           try {
             await _0x1bf22f("📥");
-            let _0x579fee = await getMenuThumb();
+            let _0x579fee = await getMenuThumb("downloader");
+            let _0x579feeMedia = _0x579fee ? await prepareWAMessageMedia({ image: _0x579fee }, { upload: _0x106db2.waUploadToServer }) : null;
             const _0xa13b86 = generateWAMessageFromContent(_0x11be99.chat, {
               buttonsMessage: {
-                contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + " - DOWNLOADER* ✧⎠⎠\n║┃\n║┃ 🎵 *Audio Download*\n║┃ .song <song_name>\n║┃ .song https://youtube.com/xxx\n║┃\n║┃ 🎬 *Video Download*\n║┃ .video <song_name>\n║┃ .video https://youtube.com/xxx\n║┃ .video360 <name>\n║┃ .video480 <name>\n║┃ .video720 <name>  ⭐ HD\n║┃ .vhd <name>  ⭐ HD\n║┃\n║┃ ✨ *Reply-to-Video HD*\n║┃ .hdvideo — HD Enhance\n║┃ .videoenhance — Sharpen + Upscale\n║┃ .upscale720 — 720p\n║┃ .upscale1080 — up to 1080p\n║┃\n║┃ 📸 *Instagram*\n║┃ .ig <instagram_url>\n║┃\n║┃ 🎵 *TikTok*\n║┃ .tt <tiktok_url>\n║┃ .tt2 <tiktok_url>\n║┃\n║┃ 🎵 *Spotify*\n║┃ .spotify <spotify_url>\n║┃ .spsong <song_name>\n║┃\n║┃ 📘 *Facebook*\n║┃ .fb <facebook_url>\n║┃\n║┃  \n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Go back to main menu:*",
+                contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + " - DOWNLOADER* ✧⎠⎠\n║┃\n║┃ 🎵 *Audio Download*\n║┃ .song <song_name>\n║┃ .song2 <song_name>  (V2)\n║┃ .audio2 <song_name>\n║┃ .song https://youtube.com/xxx\n║┃\n║┃ 🎬 *Video Download*\n║┃ .video <song_name>\n║┃ .video2 <song_name>  (V2)\n║┃ .video https://youtube.com/xxx\n║┃ .video360 <name>\n║┃ .video480 <name>\n║┃ .video720 <name>  ⭐ HD\n║┃ .vhd <name>  ⭐ HD\n║┃\n║┃ ✨ *Reply-to-Video HD*\n║┃ .hdvideo — HD Enhance\n║┃ .videoenhance — Sharpen + Upscale\n║┃ .upscale720 — 720p\n║┃ .upscale1080 — up to 1080p\n║┃\n║┃ 📸 *Instagram*\n║┃ .ig <instagram_url>\n║┃\n║┃ 🎵 *TikTok*\n║┃ .tt <tiktok_url>\n║┃ .tt2 <tiktok_url>\n║┃\n║┃ 🎵 *Spotify*\n║┃ .spotify <spotify_url>\n║┃ .spsong <song_name>\n║┃\n║┃ 📘 *Facebook*\n║┃ .fb <facebook_url>\n║┃\n║┃  \n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Go back to main menu:*",
                 footerText: "powered by " + global.Developer,
-                headerType: 6,
-                locationMessage: {
-                  name: global.Developer + " 💫💗",
-                  address: "📍 Developer",
-                  jpegThumbnail: _0x579fee
-                },
+                headerType: _0x579feeMedia ? 4 : 1,
+                imageMessage: _0x579feeMedia?.imageMessage,
                 buttons: [{
                   buttonId: "back_to_menu",
                   buttonText: {
@@ -1494,17 +1503,14 @@ module.exports = async (_0x106db2, _0x11be99) => {
         {
           try {
             await _0x1bf22f("🛠️");
-            let _0x256454 = await getMenuThumb();
+            let _0x256454 = await getMenuThumb("tools");
+            let _0x256454Media = _0x256454 ? await prepareWAMessageMedia({ image: _0x256454 }, { upload: _0x106db2.waUploadToServer }) : null;
             const _0x5a6761 = generateWAMessageFromContent(_0x11be99.chat, {
               buttonsMessage: {
-                contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + " - TOOLS* ✧⎠⎠\n║┃\n║┃ 🖼️ *Sticker Maker*\n║┃ .sticker (reply to image/video)\n║┃ .s (shortcut)\n║┃\n║┃ ✨ *HD Enhance*\n║┃ .hd (reply to image)\n║┃ .hd2 (Ultra HD)\n║┃ .uhd (4K)\n║┃\n║┃ 📤 *Upload to URL*\n║┃ .tourl (reply to image/video)\n║┃ .upload\n║┃\n║┃ 🖼️ *Sticker to Image*\n║┃ .toimg (reply to sticker)\n║┃\n║┃ 📱 *Get DP*\n║┃ .dp @mention\n║┃ .dp 923001234567\n║┃\n║┃ 📤 *Forward/View*\n║┃ .vv (reply to media)\n║┃ .vv2 (forward to owner)\n║┃\n║┃  \n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Go back to main menu:*",
+                contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + " - TOOLS* ✧⎠⎠\n║┃\n║┃ 🖼️ *Sticker Maker*\n║┃ .sticker (reply to image/video)\n║┃ .s (shortcut)\n║┃\n║┃ ✨ *HD Enhance*\n║┃ .hd (reply to image)\n║┃ .hd2 (Ultra HD)\n║┃ .uhd (4K)\n║┃\n║┃ 📤 *Upload to URL*\n║┃ .tourl (reply to image/video)\n║┃ .upload\n║┃\n║┃ 🖼️ *Sticker to Image*\n║┃ .toimg (reply to sticker)\n║┃ .tomp3 (reply to video)\n║┃\n║┃ 📱 *Get DP*\n║┃ .dp @mention\n║┃ .dp 923001234567\n║┃ .dpx @mention / number\n║┃\n║┃ 📤 *Forward/View*\n║┃ .vv (reply to media)\n║┃ .vv2 (forward to owner)\n║┃\n║┃ 🖼️ *Image Enhance*\n║┃ .remini (reply to image)\n║┃ .remini2 (reply to image)\n║┃ .upscale2 (reply to image)\n║┃\n║┃  \n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Go back to main menu:*",
                 footerText: "powered by " + global.Developer,
-                headerType: 6,
-                locationMessage: {
-                  name: global.Developer + " 💫💗",
-                  address: "📍 Developer",
-                  jpegThumbnail: _0x256454
-                },
+                headerType: _0x256454Media ? 4 : 1,
+                imageMessage: _0x256454Media?.imageMessage,
                 buttons: [{
                   buttonId: "back_to_menu",
                   buttonText: {
@@ -1548,17 +1554,14 @@ module.exports = async (_0x106db2, _0x11be99) => {
         {
           try {
             await _0x1bf22f("👥");
-            let _0xg1img = await getMenuThumb();
+            let _0xg1img = await getMenuThumb("group");
+            let _0xg1imgMedia = _0xg1img ? await prepareWAMessageMedia({ image: _0xg1img }, { upload: _0x106db2.waUploadToServer }) : null;
             const _0xg1msg = generateWAMessageFromContent(_0x11be99.chat, {
               buttonsMessage: {
-                contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + " - GROUP* ✧⎠⎠\n║┃\n║┃ 👥 *Members*\n║┃ .add @mention / number\n║┃ .kick @mention\n║┃ .promote @mention\n║┃ .demote @mention\n║┃ .listadmins\n║┃ .groupmembers\n║┃ .exportmembers\n║┃\n║┃ 📢 *Broadcast*\n║┃ .tagall <text>\n║┃ .hidetag <text>\n║┃\n║┃ ⚙️ *Group Setup*\n║┃ .setgname <name>\n║┃ .setgdesc <desc>\n║┃ .setgpp (reply to image)\n║┃ .groupid\n║┃ .rules <text>\n║┃\n║┃ 🔒 *Access Control*\n║┃ .lockgroup\n║┃ .unlockgroup\n║┃ .antilink on/off\n║┃\n║┃ 👋 *Welcome/Goodbye*\n║┃ .welcome on/off\n║┃ .setwelcome <text>\n║┃ .setgoodbye <text>\n║┃\n║┃ 🛡️ *Moderation*\n║┃ .warn @mention <reason>\n║┃ .warnings @mention\n║┃ .resetwarn @mention\n║┃ .mute @mention\n║┃ .unmute @mention\n║┃ .demoteall\n║┃ .groupsettings\n║┃\n║┃ 🔗 *Invite*\n║┃ .invitelink\n║┃ .revoke\n║┃ .join <code>\n║┃ .ginfo\n║┃  \n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Go back to main menu:*",
+                contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + " - GROUP* ✧⎠⎠\n║┃\n║┃ 👥 *Members*\n║┃ .add @mention / number\n║┃ .kick @mention\n║┃ .promote @mention\n║┃ .demote @mention\n║┃ .listadmins\n║┃ .groupmembers\n║┃ .exportmembers\n║┃ .gadd @mention / number\n║┃ .gremove @mention\n║┃ .gpromote @mention\n║┃ .gdemote @mention\n║┃\n║┃ 📢 *Broadcast*\n║┃ .tagall <text>\n║┃ .hidetag <text>\n║┃\n║┃ ⚙️ *Group Setup*\n║┃ .setgname <name>\n║┃ .setgdesc <desc>\n║┃ .setgpp (reply to image)\n║┃ .groupid\n║┃ .ginfo\n║┃ .groupinfo\n║┃ .groupset <setting> <value>\n║┃ .updategroup <subject|desc> <text>\n║┃ .rules <text>\n║┃\n║┃ 🔒 *Access Control*\n║┃ .lockgroup\n║┃ .unlockgroup\n║┃ .antilink on/off\n║┃\n║┃ 👋 *Welcome/Goodbye*\n║┃ .welcome on/off\n║┃ .setwelcome <text>\n║┃ .setgoodbye <text>\n║┃\n║┃ 🛡️ *Moderation*\n║┃ .warn @mention <reason>\n║┃ .warnings @mention\n║┃ .resetwarn @mention\n║┃ .mute @mention\n║┃ .unmute @mention\n║┃ .demoteall\n║┃ .groupsettings\n║┃\n║┃ 🔗 *Invite*\n║┃ .invitelink\n║┃ .revoke\n║┃ .join <code>\n║┃ .gcreate <group_name>\n║┃ .gleave\n║┃ .ginfo\n║┃  \n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Go back to main menu:*",
                 footerText: "powered by " + global.Developer,
-                headerType: 6,
-                locationMessage: {
-                  name: global.Developer + " 💫💗",
-                  address: "📍 Developer",
-                  jpegThumbnail: _0xg1img
-                },
+                headerType: _0xg1imgMedia ? 4 : 1,
+                imageMessage: _0xg1imgMedia?.imageMessage,
                 buttons: [{
                   buttonId: "back_to_menu",
                   buttonText: {
@@ -1602,17 +1605,14 @@ module.exports = async (_0x106db2, _0x11be99) => {
         {
           try {
             await _0x1bf22f("🎨");
-            let _0x141974 = await getMenuThumb();
+            let _0x141974 = await getMenuThumb("logo");
+            let _0x141974Media = _0x141974 ? await prepareWAMessageMedia({ image: _0x141974 }, { upload: _0x106db2.waUploadToServer }) : null;
             const _0x32d3ac = generateWAMessageFromContent(_0x11be99.chat, {
               buttonsMessage: {
                 contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + " - LOGO MAKER* ✧⎠⎠\n║┃\n║┃ ✨ *Glitch Effects*\n║┃ .glitchtext <text>\n║┃ .pixelglitch <text>\n║┃ .neonglitch <text>\n║┃\n║┃ 🌟 *Neon Effects*\n║┃ .advancedglow <text>\n║┃ .makingneon <text>\n║┃ .lighteffects <text>\n║┃\n║┃ 👑 *Royal & Premium*\n║┃ .royaltext <text>\n║┃ .luxurygold <text>\n║┃ .galaxystyle <text>\n║┃ .gradienttext <text>\n║┃\n║┃ 💗 *Blackpink Style*\n║┃ .blackpinkstyle <text>\n║┃ .blackpinklogo <text>\n║┃\n║┃ 🏖️ *Summer & Beach*\n║┃ .summerbeach <text>\n║┃ .sandsummer <text>\n║┃\n║┃ 🌊 *Water & Underwater*\n║┃ .underwatertext <text>\n║┃ .writetext <text>\n║┃\n║┃ 🎨 *More Effects*\n║┃ .flagtext <text>\n║┃ .flag3dtext <text>\n║┃ .galaxywallpaper <text>\n║┃ .cartoonstyle <text>\n║┃ .papercutstyle <text>\n║┃ .watercolortext <text>\n║┃ .effectclouds <text>\n║┃ .typographytext <text>\n║┃\n║┃ 📌 *Usage:*\n║┃ .effectname Your Text\n║┃ Example: .glitchtext Rizo\n║┃\n║┃  \n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Go back to main menu:*",
                 footerText: "powered by " + global.Developer,
-                headerType: 6,
-                locationMessage: {
-                  name: global.Developer + " 💫💗",
-                  address: "📍 Developer",
-                  jpegThumbnail: _0x141974
-                },
+                headerType: _0x141974Media ? 4 : 1,
+                imageMessage: _0x141974Media?.imageMessage,
                 buttons: [{
                   buttonId: "back_to_menu",
                   buttonText: {
@@ -1656,18 +1656,15 @@ module.exports = async (_0x106db2, _0x11be99) => {
         {
           try {
             await _0x1bf22f("⚙️");
-            let _0x3e040e = await getMenuThumb();
+            let _0x3e040e = await getMenuThumb("settings");
+            let _0x3e040eMedia = _0x3e040e ? await prepareWAMessageMedia({ image: _0x3e040e }, { upload: _0x106db2.waUploadToServer }) : null;
             const _0x1cf828 = getUserSettings(_0x106db2.user.id);
             const _0x4cd23c = generateWAMessageFromContent(_0x11be99.chat, {
               buttonsMessage: {
                 contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + " - SETTINGS* ✧⎠⎠\n║┃\n║┃ 📊 *Current Status:*\n║┃\n║┃ 🌐 *Public Mode:* " + (_0x1cf828.publicMode ? "✅ ON" : "❌ OFF") + "\n║┃ 🔄 *Auto React:* " + (_0x1cf828.autoReact ? "✅ ON" : "❌ OFF") + "\n║┃ 🗑️ *Anti Delete:* " + (_0x1cf828.antiDelete ? "✅ ON" : "❌ OFF") + "\n║┃ 👁️ *Auto View:* " + (_0x1cf828.autoStatusView ? "✅ ON" : "❌ OFF") + "\n║┃ 📞 *Reject Calls:* " + (_0x1cf828.autoRejectCall ? "✅ ON" : "❌ OFF") + "\n║┃ 🚫 *Anti Link:* " + (_0x1cf828.antiLink ? "✅ ON" : "❌ OFF") + "\n║┃\n║┃ ━━━━━━━━━━━━━━━━━━━━━\n║┃ 🔧 *Commands to Change:*\n║┃\n║┃ 🌐 .public - Public Mode ON\n║┃ 🔒 .self - Private Mode ON\n║┃\n║┃ 🔄 .autoreact-on - Auto React ON\n║┃ 🔄 .autoreact-off - Auto React OFF\n║┃\n║┃ 🗑️ .antidelete-on - Anti Delete ON\n║┃ 🗑️ .antidelete-off - Anti Delete OFF\n║┃\n║┃ 👁️ .autoview-on - Auto View ON\n║┃ 👁️ .autoview-off - Auto View OFF\n║┃\n║┃ 📞 .autorejectcall-on - Reject Calls ON\n║┃ 📞 .autorejectcall-off - Reject Calls OFF\n║┃\n║┃ 🚫 .antilink-on - Anti Link ON\n║┃ 🚫 .antilink-off - Anti Link OFF\n║┃\n║┃ 📊 .mysettings - View Current Settings\n║┃\n║┃\n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Select an option:*",
                 footerText: "powered by " + global.Developer,
-                headerType: 6,
-                locationMessage: {
-                  name: global.Developer + " 💫💗",
-                  address: "📍 Developer",
-                  jpegThumbnail: _0x3e040e
-                },
+                headerType: _0x3e040eMedia ? 4 : 1,
+                imageMessage: _0x3e040eMedia?.imageMessage,
                 buttons: [{
                   buttonId: "settings_actions",
                   buttonText: {
@@ -3538,8 +3535,6 @@ module.exports = async (_0x106db2, _0x11be99) => {
       case "hdvideo":
       case "videoenhance":
       case "enhancevideo":
-      case "hdpro":
-      case "hd1080":
       case "upscale720":
       case "upscale1080":
       case "vhd":
@@ -3568,28 +3563,25 @@ module.exports = async (_0x106db2, _0x11be99) => {
             _0xhdout = _0xhdpath.join(__dirname, "hd_out_" + _0xhdid + ".mp4");
             _0hdcomp = _0xhdpath.join(__dirname, "hd_comp_" + _0xhdid + ".mp4");
             _0xhdfs.writeFileSync(_0xhdin, _0xhddata);
-            const _0xhd1080 = ["hdvideo", "videoenhance", "enhancevideo", "hdpro", "hd1080", "upscale1080"].includes(_0x1a9ad3);
-            const _0xhdW = _0xhd1080 ? 1920 : 1280;
-            const _0xhdH = _0xhd1080 ? 1080 : 720;
-            // High-quality upscale: Lanczos scaling + gentle denoise + detail sharpening.
-            // This improves clarity/compression, but cannot recreate detail that was never in the source.
-            const _0xhdvf = "scale=" + _0xhdW + ":" + _0xhdH + ":force_original_aspect_ratio=decrease:flags=lanczos,hqdn3d=1.2:1.2:6:6,unsharp=5:5:0.55:5:5:0.0,pad=" + _0xhdW + ":" + _0xhdH + ":(ow-iw)/2:(oh-ih)/2,format=yuv420p";
+            // Keep HD processing lightweight so low-RAM Railway/Pterodactyl containers do not kill FFmpeg.
+            const _0xhdmax = _0x1a9ad3 === "upscale1080" ? "1920:1080" : "1280:720";
+            const _0xhdvf = "scale=" + _0xhdmax + ":force_original_aspect_ratio=decrease:force_divisible_by=2,unsharp=3:3:0.5:3:3:0.0,format=yuv420p";
             const _0xff = JSON.stringify(ffmpegInstaller.path || "ffmpeg");
-            const _0xhdcmd = _0xff + " -hide_banner -loglevel error -y -i " + JSON.stringify(_0xhdin) + " -vf " + JSON.stringify(_0xhdvf) + " -c:v libx264 -preset slow -crf 18 -profile:v high -level 4.1 -c:a aac -b:a 160k -ar 48000 -movflags +faststart " + JSON.stringify(_0xhdout);
+            const _0xhdcmd = _0xff + " -hide_banner -loglevel error -y -threads 1 -filter_threads 1 -i " + JSON.stringify(_0xhdin) + " -vf " + JSON.stringify(_0xhdvf) + " -c:v libx264 -preset veryfast -tune fastdecode -crf 24 -maxrate 3500k -bufsize 7000k -c:a aac -b:a 96k -movflags +faststart " + JSON.stringify(_0xhdout);
             await _0xhdexecAsync(_0xhdcmd, { timeout: 420000, maxBuffer: 1024 * 1024 * 5 });
             if (!_0xhdfs.existsSync(_0xhdout)) throw new Error("FFmpeg output was not created");
             let _0xhdresult = _0xhdfs.readFileSync(_0xhdout);
             let _0xhdmb = _0xhdresult.length / 1048576;
             if (_0xhdmb > 62) {
               await _0x5b1b57("🗜️ *HD file large hai* (" + _0xhdmb.toFixed(1) + " MB)\n📦 WhatsApp-friendly compression...");
-              const _0xcompcmd = _0xff + " -hide_banner -loglevel error -y -i " + JSON.stringify(_0xhdout) + " -vf " + JSON.stringify("scale=1280:720:force_original_aspect_ratio=decrease,unsharp=3:3:0.5:3:3:0.0,format=yuv420p") + " -c:v libx264 -preset veryfast -crf 27 -c:a aac -b:a 96k -movflags +faststart " + JSON.stringify(_0hdcomp);
+              const _0xcompcmd = _0xff + " -hide_banner -loglevel error -y -threads 1 -filter_threads 1 -i " + JSON.stringify(_0xhdout) + " -vf " + JSON.stringify("scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2,unsharp=2:2:0.35:2:2:0.0,format=yuv420p") + " -c:v libx264 -preset ultrafast -crf 28 -c:a aac -b:a 80k -movflags +faststart " + JSON.stringify(_0hdcomp);
               await _0xhdexecAsync(_0xcompcmd, { timeout: 420000, maxBuffer: 1024 * 1024 * 5 });
               if (_0xhdfs.existsSync(_0hdcomp)) {
                 _0xhdresult = _0xhdfs.readFileSync(_0hdcomp);
                 _0xhdmb = _0xhdresult.length / 1048576;
               }
             }
-            const _0xhdlabel = _0xhd1080 ? "FULL HD 1080P" : "HD 720P";
+            const _0xhdlabel = _0x1a9ad3 === "upscale1080" ? "UP TO 1080P" : "HD 720P";
             await _0x106db2.sendMessage(_0x11be99.chat, {
               video: _0xhdresult,
               mimetype: "video/mp4",
@@ -3600,7 +3592,7 @@ module.exports = async (_0x106db2, _0x11be99) => {
           } catch (_0xhdErr) {
             console.error("HD video error:", _0xhdErr);
             await _0x1bf22f("❌");
-            await _0x5b1b57("❌ *HD Video Failed*\n\n" + (_0xhdErr.message || "Unknown error") + "\n\n💡 Shorter video ya lower-resolution source try karo.");
+            await _0x5b1b57("❌ *HD Video Failed*\n\n" + (_0xhdErr.message || "Unknown error") + "\n\n💡 Server ne FFmpeg process stop kiya ho to bot ab low-memory mode use karega. Phir bhi issue aaye to shorter video try karo.");
           } finally {
             [_0xhdin, _0xhdout, _0hdcomp].forEach(_0xf => {
               try { if (_0xf && _0xhdfs.existsSync(_0xf)) _0xhdfs.unlinkSync(_0xf); } catch {}

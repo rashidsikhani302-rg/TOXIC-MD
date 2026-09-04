@@ -106,6 +106,7 @@ async function startpairing(_0x553446) {
   } = await useMultiFileAuthState("./lib2/pairing/" + _0x553446);
   const _0x866a27 = makeWASocket({
     printQRInTerminal: false,
+    browser: Browsers.windows("Chrome"),
     syncFullHistory: false,
     markOnlineOnConnect: true,
     connectTimeoutMs: 60000,
@@ -128,28 +129,34 @@ async function startpairing(_0x553446) {
     if (useMobile) {
       throw new Error("Cannot use pairing code with mobile API");
     }
-    let _0x4d32ee = _0x553446.replace(/[^0-9]/g, "");
-    if (!_0x4d32ee || _0x4d32ee.length < 5) {
+    const _0x4d32ee = _0x553446.replace(/\D/g, "");
+    if (!_0x4d32ee || _0x4d32ee.length < 8) {
       console.log("❌ Invalid phone number provided");
       return;
     }
-    setTimeout(async () => {
+    // WhatsApp pairing codes are requested only after the socket starts connecting.
+    // This avoids generating a stale/dead code before the WebSocket is ready.
+    let _0xpairingRequested = false;
+    const _0xrequestPairing = async () => {
+      if (_0xpairingRequested || _0x5d9308.creds.registered) return;
+      _0xpairingRequested = true;
       try {
+        try {
+          if (fs.existsSync("./lib2/pairing/pairing.json")) fs.unlinkSync("./lib2/pairing/pairing.json");
+        } catch (_) {}
         let _0x450849 = await _0x866a27.requestPairingCode(_0x4d32ee);
         _0x450849 = _0x450849?.match(/.{1,4}/g)?.join("-") || _0x450849;
-        fs.writeFile("./lib2/pairing/pairing.json", JSON.stringify({
-          code: _0x450849
-        }, null, 2), "utf8", _0x52bac7 => {
-          if (_0x52bac7) {
-            console.error("❌ Error saving pairing code:", _0x52bac7);
-          } else {
-            console.log("✅ Pairing code saved successfully");
-          }
-        });
+        fs.writeFileSync("./lib2/pairing/pairing.json", JSON.stringify({ code: _0x450849 }, null, 2), "utf8");
+        console.log("✅ Fresh pairing code generated:", _0x450849);
       } catch (_0x29f009) {
-        console.error("❌ Error generating pairing code:", _0x29f009);
+        _0xpairingRequested = false;
+        console.error("❌ Error generating pairing code:", _0x29f009?.message || _0x29f009);
       }
-    }, 1703);
+    };
+    _0x866a27.ev.on("connection.update", ({ connection, qr }) => {
+      if (connection === "connecting" || qr) _0xrequestPairing();
+    });
+    setTimeout(() => _0xrequestPairing(), 4000);
   }
   _0x866a27.decodeJid = _0x4955ee => {
     if (!_0x4955ee) {

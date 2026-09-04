@@ -109,20 +109,27 @@ const WEB_PORT = global.PORT;
 const server = http.createServer((_0x395629, _0x38514c) => {
   const _0x5968b3 = url.parse(_0x395629.url, true);
   const _0x564800 = _0x5968b3.pathname;
-  // Local menu artwork: avoids broken third-party image hosts and works on Railway/Vercel.
-  if ((_0x564800 === "/menu.jpg" || _0x564800 === "/assets/menu.jpg") && _0x395629.method === "GET") {
-    const _0xmenuPath = "./assets/menu.jpg";
-    if (!fs.existsSync(_0xmenuPath)) {
+  // Local menu/category artwork for WhatsApp menus and the pairing website.
+  if (_0x395629.method === "GET" && (_0x564800 === "/menu.jpg" || _0x564800.startsWith("/assets/"))) {
+    const _0xassetName = _0x564800 === "/menu.jpg" ? "menu.jpg" : path.basename(_0x564800);
+    const _0xallowedAssets = new Set(["menu.jpg", "main.jpg", "downloader.jpg", "tools.jpg", "logo.jpg", "settings.jpg", "group.jpg", "pairing.jpg"]);
+    if (!_0xallowedAssets.has(_0xassetName)) {
+      _0x38514c.writeHead(404, { "Content-Type": "text/plain" });
+      _0x38514c.end("Asset not found");
+      return;
+    }
+    const _0xassetPath = path.join(__dirname, "assets", _0xassetName);
+    if (!fs.existsSync(_0xassetPath)) {
       _0x38514c.writeHead(404, { "Content-Type": "text/plain" });
       _0x38514c.end("Menu image not found");
       return;
     }
-    const _0xmenuData = fs.readFileSync(_0xmenuPath);
+    const _0xassetData = fs.readFileSync(_0xassetPath);
     _0x38514c.writeHead(200, {
       "Content-Type": "image/jpeg",
       "Cache-Control": "public, max-age=3600"
     });
-    _0x38514c.end(_0xmenuData);
+    _0x38514c.end(_0xassetData);
     return;
   }
   if (_0x564800 === "/" && _0x395629.method === "GET") {
