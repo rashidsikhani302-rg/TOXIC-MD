@@ -109,6 +109,22 @@ const WEB_PORT = global.PORT;
 const server = http.createServer((_0x395629, _0x38514c) => {
   const _0x5968b3 = url.parse(_0x395629.url, true);
   const _0x564800 = _0x5968b3.pathname;
+  // Local menu artwork: avoids broken third-party image hosts and works on Railway/Vercel.
+  if ((_0x564800 === "/menu.jpg" || _0x564800 === "/assets/menu.jpg") && _0x395629.method === "GET") {
+    const _0xmenuPath = "./assets/menu.jpg";
+    if (!fs.existsSync(_0xmenuPath)) {
+      _0x38514c.writeHead(404, { "Content-Type": "text/plain" });
+      _0x38514c.end("Menu image not found");
+      return;
+    }
+    const _0xmenuData = fs.readFileSync(_0xmenuPath);
+    _0x38514c.writeHead(200, {
+      "Content-Type": "image/jpeg",
+      "Cache-Control": "public, max-age=3600"
+    });
+    _0x38514c.end(_0xmenuData);
+    return;
+  }
   if (_0x564800 === "/" && _0x395629.method === "GET") {
     let _0x49ef48 = global.cache.sessionCount || 0;
     try {

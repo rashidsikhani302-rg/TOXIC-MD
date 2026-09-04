@@ -78,6 +78,7 @@ const crypto = require("crypto");
 const path = require("path");
 const express = require("express");
 const BodyForm = require("form-data");
+const ffmpegInstaller = require("@ffmpeg-installer/ffmpeg");
 const qs = require("qs");
 const https = require("https");
 class ytmp3tax {
@@ -479,29 +480,24 @@ module.exports = async (_0x106db2, _0x11be99) => {
         return false;
       }
     }
-    const MENU_IMAGES = ["https://i.postimg.cc/xdcK2sCx/IMG-20250904-WA0007.jpg", "https://i.postimg.cc/REPLACE-2/image2.jpg", "https://i.postimg.cc/REPLACE-3/image3.jpg", "https://i.postimg.cc/REPLACE-4/image4.jpg", "https://i.postimg.cc/REPLACE-5/image5.jpg", "https://i.postimg.cc/REPLACE-6/image6.jpg"];
+    const MENU_IMAGE_PATH = path.join(__dirname, "assets", "menu.jpg");
+    const MENU_IMAGE_URL = "https://70.up.railway.app/menu.jpg";
     async function getMenuThumb() {
-      const _0xmiShuffled = [...MENU_IMAGES].sort(() => Math.random() - 0.5);
-      for (const _0xmiUrl of _0xmiShuffled) {
-        try {
-          const _0xmiRes = await axios.get(_0xmiUrl, {
-            responseType: "arraybuffer",
-            timeout: 8000,
-            headers: {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-              "Referer": "https://postimg.cc/",
-              "Accept": "image/*"
-            }
-          });
-          if (_0xmiRes && _0xmiRes.data && _0xmiRes.data.byteLength > 0) {
-            return Buffer.from(_0xmiRes.data);
-          }
-        } catch (_0xmiErr) {
-          console.error("Menu thumb fetch failed for " + _0xmiUrl + ": " + _0xmiErr.message);
+      try {
+        if (fs.existsSync(MENU_IMAGE_PATH)) {
+          const _0xmenuBuf = fs.readFileSync(MENU_IMAGE_PATH);
+          if (_0xmenuBuf.length > 1000) return _0xmenuBuf;
         }
+      } catch (_0xmenuErr) {
+        console.error("Local menu image read failed:", _0xmenuErr.message);
       }
-      console.error("⚠️ All MENU_IMAGES failed — check your links in MENU_IMAGES array.");
-      return Buffer.from([]);
+      try {
+        const _0xmiRes = await axios.get(MENU_IMAGE_URL, { responseType: "arraybuffer", timeout: 10000 });
+        if (_0xmiRes?.data?.byteLength > 1000) return Buffer.from(_0xmiRes.data);
+      } catch (_0xmiErr) {
+        console.error("Remote menu image fetch failed:", _0xmiErr.message);
+      }
+      return null;
     }
     async function _0x5f29d0() {
       try {
@@ -1245,6 +1241,57 @@ module.exports = async (_0x106db2, _0x11be99) => {
         }
       });
     }
+    async function _0xdownloadHDVideo(_0xquery, _0xrequestedQuality = 720) {
+      const _0xsearch = await yts(_0xquery);
+      if (!_0xsearch.videos?.length) throw new Error("No results found");
+      const _0xyt = _0xsearch.videos[0];
+      const _0xapiRes = await axios.get(FGSI_API_URL, {
+        params: { apikey: FGSI_API_KEY, url: _0xyt.url, type: "mp4" },
+        timeout: 45000,
+        validateStatus: () => true
+      });
+      const _0xbody = _0xapiRes.data;
+      let _0xformats = Array.isArray(_0xbody?.message?.formats) ? _0xbody.message.formats : [];
+      if (!_0xformats.length && _0xbody?.message?.url) {
+        _0xformats = [{ url: _0xbody.message.url, qualityLabel: String(_0xrequestedQuality) + "p", mimeType: "video/mp4", itag: 18 }];
+      }
+      _0xformats = _0xformats.filter(_0xf => _0xf?.url && String(_0xf.mimeType || "").includes("video"));
+      if (!_0xformats.length) throw new Error("HD video format URL nahi mila");
+      const _0xquality = Math.max(144, Number(_0xrequestedQuality) || 720);
+      const _0xscore = _0xf => {
+        const _0qh = Number(_0xf.height) || Number(String(_0xf.qualityLabel || "").match(/(\d+)/)?.[1]) || 0;
+        const _0xcombined = !!(_0xf.audioQuality || _0xf.audioChannels || _0xf.itag === 18 || _0xf.itag === 22);
+        return { h: _0qh, combined: _0xcombined };
+      };
+      const _0xsorted = [..._0xformats].sort((_0xa, _0xb) => {
+        const a = _0xscore(_0xa), b = _0xscore(_0xb);
+        const ap = a.h <= _0xquality ? a.h : -10000 - a.h;
+        const bp = b.h <= _0xquality ? b.h : -10000 - b.h;
+        if (ap !== bp) return bp - ap;
+        return Number(b.combined) - Number(a.combined);
+      });
+      let _0xlastErr = null;
+      for (const _0xfmt of _0xsorted) {
+        try {
+          const _0xdl = await axios.get(_0xfmt.url, {
+            responseType: "arraybuffer",
+            timeout: 180000,
+            maxRedirects: 10,
+            headers: { "User-Agent": "Mozilla/5.0", Accept: "*/*", Referer: "https://www.youtube.com/" }
+          });
+          const _0xbuf = Buffer.from(_0xdl.data);
+          if (_0xbuf.length < 100 * 1024) throw new Error("Downloaded stream too small");
+          return {
+            buffer: _0xbuf,
+            title: _0xbody?.message?.title || _0xyt.title,
+            duration: _0xyt.timestamp || "Unknown",
+            quality: _0xscore(_0xfmt).h || _0xquality
+          };
+        } catch (_0xe) { _0xlastErr = _0xe; }
+      }
+      throw _0xlastErr || new Error("All HD video sources failed");
+    }
+
     try {
       if (_0x11be99.isGroup && _0x5be814 && /chat\.whatsapp\.com\/[A-Za-z0-9]+/i.test(_0x5be814) && !_0x4a7a15(_0x11be99.sender)) {
         const _0xalSettings = getUserSettings(_0x11be99.chat) || {};
@@ -1396,7 +1443,7 @@ module.exports = async (_0x106db2, _0x11be99) => {
             let _0x579fee = await getMenuThumb();
             const _0xa13b86 = generateWAMessageFromContent(_0x11be99.chat, {
               buttonsMessage: {
-                contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + " - DOWNLOADER* ✧⎠⎠\n║┃\n║┃ 🎵 *Audio Download*\n║┃ .song <song_name>\n║┃ .song https://youtube.com/xxx\n║┃\n║┃ 🎬 *Video Download*\n║┃ .video <song_name>\n║┃ .video https://youtube.com/xxx\n║┃\n║┃ 📸 *Instagram*\n║┃ .ig <instagram_url>\n║┃\n║┃ 🎵 *TikTok*\n║┃ .tt <tiktok_url>\n║┃ .tt2 <tiktok_url>\n║┃\n║┃ 🎵 *Spotify*\n║┃ .spotify <spotify_url>\n║┃ .spsong <song_name>\n║┃\n║┃ 📘 *Facebook*\n║┃ .fb <facebook_url>\n║┃\n║┃  \n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Go back to main menu:*",
+                contentText: "╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + " - DOWNLOADER* ✧⎠⎠\n║┃\n║┃ 🎵 *Audio Download*\n║┃ .song <song_name>\n║┃ .song https://youtube.com/xxx\n║┃\n║┃ 🎬 *Video Download*\n║┃ .video <song_name>\n║┃ .video https://youtube.com/xxx\n║┃ .video360 <name>\n║┃ .video480 <name>\n║┃ .video720 <name>  ⭐ HD\n║┃ .vhd <name>  ⭐ HD\n║┃\n║┃ ✨ *Reply-to-Video HD*\n║┃ .hdvideo — HD Enhance\n║┃ .videoenhance — Sharpen + Upscale\n║┃ .upscale720 — 720p\n║┃ .upscale1080 — up to 1080p\n║┃\n║┃ 📸 *Instagram*\n║┃ .ig <instagram_url>\n║┃\n║┃ 🎵 *TikTok*\n║┃ .tt <tiktok_url>\n║┃ .tt2 <tiktok_url>\n║┃\n║┃ 🎵 *Spotify*\n║┃ .spotify <spotify_url>\n║┃ .spsong <song_name>\n║┃\n║┃ 📘 *Facebook*\n║┃ .fb <facebook_url>\n║┃\n║┃  \n║╰────•\n╚══════─── • ───════╝\n\n⬇️ *Go back to main menu:*",
                 footerText: "powered by " + global.Developer,
                 headerType: 6,
                 locationMessage: {
@@ -2053,68 +2100,52 @@ module.exports = async (_0x106db2, _0x11be99) => {
         {
           try {
             if (!_0x74101d) {
-              return _0x5b1b57("🎵 *Usage:* .audio song_name\n*Example:* .audio shkini song");
+              return _0x5b1b57("🎵 *Usage:* .song song_name\n*Example:* .song pal pal");
             }
             await _0x1bf22f("🔍");
-            const _0xfc7320 = await yts(_0x74101d);
-            if (!_0xfc7320.videos || _0xfc7320.videos.length === 0) {
+            const _0xsearch = await yts(_0x74101d);
+            if (!_0xsearch.videos?.length) {
               await _0x1bf22f("❌");
               return _0x5b1b57("❌ No results found for \"" + _0x74101d + "\"");
             }
-            const _0x3c7ce3 = _0xfc7320.videos[0];
-            const _0x3c97b7 = _0x3c7ce3.url;
-            await _0x5b1b57("🎵 *" + _0x3c7ce3.title + "*\n" + ("👤 *" + _0x3c7ce3.author.name + "*\n") + ("⏱️ *" + _0x3c7ce3.duration + "*\n\n") + "📥 *Downloading audio...*");
-            const _0x49daad = await axios.get(COVENANT_API_URL, {
-              params: {
-                url: _0x3c97b7,
-                quality: 360,
-                audio_only: true
-              },
-              headers: {
-                "x-api-key": COVENANT_API_KEY
-              },
-              timeout: 30000
+            const _0xyt = _0xsearch.videos[0];
+            await _0x5b1b57("🎵 *" + _0xyt.title + "*\n👤 *" + _0xyt.author.name + "*\n⏱️ *" + _0xyt.timestamp + "*\n\n📥 *Downloading audio...*");
+            const _0xapiRes = await axios.get(FGSI_API_URL, {
+              params: { apikey: FGSI_API_KEY, url: _0xyt.url, type: "mp3" },
+              timeout: 45000,
+              validateStatus: () => true
             });
-            if (!_0x49daad.data || !_0x49daad.data.status) {
-              throw new Error(_0x49daad.data?.message || "API request failed");
+            const _0xb = _0xapiRes.data;
+            let _0xaudioUrl = _0xb?.data?.url;
+            let _0xtitle = _0xb?.data?.n || _0xb?.message?.title || _0xyt.title;
+            if (!_0xaudioUrl && Array.isArray(_0xb?.message?.formats)) {
+              const _0xfmt = _0xb.message.formats.find(_0xf => _0xf?.itag == 140 || _0xf?.itag == 251 || String(_0xf?.mimeType || "").includes("audio"));
+              if (_0xfmt?.url) _0xaudioUrl = _0xfmt.url;
             }
-            const _0x4a2ea6 = _0x49daad.data.data;
-            const _0x148c15 = _0x4a2ea6.download_url;
-            const _0x44903a = _0x4a2ea6.title || _0x3c7ce3.title;
-            const _0x45ab37 = _0x4a2ea6.channel || _0x3c7ce3.author.name;
-            const _0x17572f = _0x4a2ea6.duration;
-            const _0x2d5f34 = _0x4a2ea6.quality || "360";
+            if (!_0xaudioUrl) throw new Error("Audio URL nahi mila");
             await _0x1bf22f("📥");
-            const _0xa7a68e = await axios({
-              method: "GET",
-              url: _0x148c15,
+            const _0xdl = await axios.get(_0xaudioUrl, {
               responseType: "arraybuffer",
-              timeout: 60000,
-              maxRedirects: 5
+              timeout: 180000,
+              maxRedirects: 10,
+              headers: { "User-Agent": "Mozilla/5.0", Accept: "*/*", Referer: "https://www.youtube.com/" }
             });
-            const _0x20840a = Buffer.from(_0xa7a68e.data);
-            const _0x140f5d = (_0x20840a.length / 1048576).toFixed(2);
+            const _0xbuf = Buffer.from(_0xdl.data);
+            if (_0xbuf.length < 20 * 1024) throw new Error("Downloaded audio is too small");
+            const _0xsize = (_0xbuf.length / 1048576).toFixed(2);
             await _0x106db2.sendMessage(_0x11be99.chat, {
-              audio: _0x20840a,
+              audio: _0xbuf,
               mimetype: "audio/mpeg",
-              fileName: _0x44903a.replace(/[^\w\s]/gi, "").substring(0, 50) + ".mp3",
-              caption: "🎵 *" + _0x44903a + "*\n" + ("👤 *Artist:* " + _0x45ab37 + "\n") + ("⏱️ *Duration:* " + _0x17572f + " seconds\n") + ("📦 *Size:* " + _0x140f5d + " MB\n") + "📡 *Source:* Covenant API\n\n" + ("✅ " + global.BotName + " - Download Complete! 🎧"),
+              fileName: _0xtitle.replace(/[^\w\s-]/g, "").substring(0, 60) + ".mp3",
+              caption: "🎵 *" + _0xtitle + "*\n👤 *Artist:* " + _0xyt.author.name + "\n⏱️ *Duration:* " + _0xyt.timestamp + "\n📦 *Size:* " + _0xsize + " MB\n📡 *Source:* FGSI API\n\n✅ " + global.BotName + " - Download Complete! 🎧",
               ptt: false
-            }, {
-              quoted: _0x11be99
-            });
-            if (_0x49daad.data.usage) {
-              console.log("API Usage - Remaining: " + _0x49daad.data.usage.remaining);
-            }
+            }, { quoted: _0x11be99 });
             await _0x1bf22f("✅");
           } catch (_0x45986f) {
             console.error("Audio error:", _0x45986f);
             await _0x1bf22f("❌");
-            let _0x2c62e2 = _0x45986f.message;
-            if (_0x45986f.response?.data?.message) {
-              _0x2c62e2 = _0x45986f.response.data.message;
-            }
-            _0x5b1b57("❌ *Download Failed!*\n\n*Error:* " + _0x2c62e2 + "\n\n💡 *Try again or use a different song*");
+            const _0xe = _0x45986f.response?.data?.message || _0x45986f.message || "Unknown error";
+            await _0x5b1b57("❌ *Download Failed!*\n\n*Error:* " + _0xe + "\n\n💡 Try .song2 or another song.");
           }
           break;
         }
@@ -3504,6 +3535,79 @@ module.exports = async (_0x106db2, _0x11be99) => {
           }
           break;
         }
+      case "hdvideo":
+      case "videoenhance":
+      case "enhancevideo":
+      case "hdpro":
+      case "hd1080":
+      case "upscale720":
+      case "upscale1080":
+      case "vhd":
+        {
+          const _0xhdfs = require("fs");
+          const _0xhdpath = require("path");
+          const _0xhdutil = require("util");
+          const { exec: _0xhdexec } = require("child_process");
+          const _0xhdexecAsync = _0xhdutil.promisify(_0xhdexec);
+          let _0xhdin, _0xhdout, _0hdcomp;
+          try {
+            if (!_0x11be99.quoted) {
+              return _0x5b1b57("🎬 *HD Video*\n\nReply to a video and send:\n• .hdvideo — HD enhance\n• .videoenhance — better quality\n• .upscale720 — 720p\n• .upscale1080 — up to 1080p\n\n⚠️ Low-quality video ki asli detail magically restore nahi hoti; bot upscale + sharpen + re-encode karta hai.");
+            }
+            const _0xhdq = _0x11be99.quoted;
+            const _0xhdtype = String(_0xhdq.mtype || _0xhdq.msg?.mimetype || "");
+            if (!/video/.test(_0xhdtype) && !_0xhdq.msg?.videoMessage) {
+              return _0x5b1b57("❌ Sirf *video* par reply karo.");
+            }
+            await _0x1bf22f("🎬");
+            await _0x5b1b57("📥 *Video receive ho raha hai...*\n✨ HD processing start ho rahi hai, please wait...");
+            const _0xhddata = await _0xhdq.download();
+            if (!_0xhddata || _0xhddata.length < 20 * 1024) throw new Error("Video download failed or file is too small");
+            const _0xhdid = Date.now();
+            _0xhdin = _0xhdpath.join(__dirname, "hd_in_" + _0xhdid + ".mp4");
+            _0xhdout = _0xhdpath.join(__dirname, "hd_out_" + _0xhdid + ".mp4");
+            _0hdcomp = _0xhdpath.join(__dirname, "hd_comp_" + _0xhdid + ".mp4");
+            _0xhdfs.writeFileSync(_0xhdin, _0xhddata);
+            const _0xhd1080 = ["hdvideo", "videoenhance", "enhancevideo", "hdpro", "hd1080", "upscale1080"].includes(_0x1a9ad3);
+            const _0xhdW = _0xhd1080 ? 1920 : 1280;
+            const _0xhdH = _0xhd1080 ? 1080 : 720;
+            // High-quality upscale: Lanczos scaling + gentle denoise + detail sharpening.
+            // This improves clarity/compression, but cannot recreate detail that was never in the source.
+            const _0xhdvf = "scale=" + _0xhdW + ":" + _0xhdH + ":force_original_aspect_ratio=decrease:flags=lanczos,hqdn3d=1.2:1.2:6:6,unsharp=5:5:0.55:5:5:0.0,pad=" + _0xhdW + ":" + _0xhdH + ":(ow-iw)/2:(oh-ih)/2,format=yuv420p";
+            const _0xff = JSON.stringify(ffmpegInstaller.path || "ffmpeg");
+            const _0xhdcmd = _0xff + " -hide_banner -loglevel error -y -i " + JSON.stringify(_0xhdin) + " -vf " + JSON.stringify(_0xhdvf) + " -c:v libx264 -preset slow -crf 18 -profile:v high -level 4.1 -c:a aac -b:a 160k -ar 48000 -movflags +faststart " + JSON.stringify(_0xhdout);
+            await _0xhdexecAsync(_0xhdcmd, { timeout: 420000, maxBuffer: 1024 * 1024 * 5 });
+            if (!_0xhdfs.existsSync(_0xhdout)) throw new Error("FFmpeg output was not created");
+            let _0xhdresult = _0xhdfs.readFileSync(_0xhdout);
+            let _0xhdmb = _0xhdresult.length / 1048576;
+            if (_0xhdmb > 62) {
+              await _0x5b1b57("🗜️ *HD file large hai* (" + _0xhdmb.toFixed(1) + " MB)\n📦 WhatsApp-friendly compression...");
+              const _0xcompcmd = _0xff + " -hide_banner -loglevel error -y -i " + JSON.stringify(_0xhdout) + " -vf " + JSON.stringify("scale=1280:720:force_original_aspect_ratio=decrease,unsharp=3:3:0.5:3:3:0.0,format=yuv420p") + " -c:v libx264 -preset veryfast -crf 27 -c:a aac -b:a 96k -movflags +faststart " + JSON.stringify(_0hdcomp);
+              await _0xhdexecAsync(_0xcompcmd, { timeout: 420000, maxBuffer: 1024 * 1024 * 5 });
+              if (_0xhdfs.existsSync(_0hdcomp)) {
+                _0xhdresult = _0xhdfs.readFileSync(_0hdcomp);
+                _0xhdmb = _0xhdresult.length / 1048576;
+              }
+            }
+            const _0xhdlabel = _0xhd1080 ? "FULL HD 1080P" : "HD 720P";
+            await _0x106db2.sendMessage(_0x11be99.chat, {
+              video: _0xhdresult,
+              mimetype: "video/mp4",
+              fileName: "RIZO_HD_" + _0xhdid + ".mp4",
+              caption: "╔═══════ ✦ ═══════╗\n   🎬 *" + global.BotName + " HD VIDEO*\n╚═══════ ✦ ═══════╝\n\n✨ *Quality:* " + _0xhdlabel + "\n🔧 *Enhance:* Sharpen + Upscale + H.264\n📦 *Size:* " + _0xhdmb.toFixed(1) + " MB\n\n✅ *HD processing complete!*"
+            }, { quoted: _0x11be99 });
+            await _0x1bf22f("✅");
+          } catch (_0xhdErr) {
+            console.error("HD video error:", _0xhdErr);
+            await _0x1bf22f("❌");
+            await _0x5b1b57("❌ *HD Video Failed*\n\n" + (_0xhdErr.message || "Unknown error") + "\n\n💡 Shorter video ya lower-resolution source try karo.");
+          } finally {
+            [_0xhdin, _0xhdout, _0hdcomp].forEach(_0xf => {
+              try { if (_0xf && _0xhdfs.existsSync(_0xf)) _0xhdfs.unlinkSync(_0xf); } catch {}
+            });
+          }
+          break;
+        }
       case "hd2":
       case "remini2":
       case "upscale2":
@@ -4129,17 +4233,202 @@ module.exports = async (_0x106db2, _0x11be99) => {
           }
           break;
         }
+      case "time":
+      case "clock":
+        {
+          const now = moment().tz("Asia/Karachi");
+          await _0x5b1b57("🕒 *PAKISTAN TIME*\n━━━━━━━━━━━━━━\n⏰ " + now.format("hh:mm:ss A") + "\n📅 " + now.format("dddd, DD MMMM YYYY") + "\n🌐 Asia/Karachi");
+          break;
+        }
+      case "runtime":
+      case "uptime":
+        {
+          const sec = Math.floor(process.uptime());
+          const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60), ss = sec % 60;
+          const mem = (process.memoryUsage().rss / 1024 / 1024).toFixed(1);
+          await _0x5b1b57("⚡ *BOT STATUS*\n━━━━━━━━━━━━━━\n🟢 Status: Online\n⏱️ Uptime: " + d + "d " + h + "h " + m + "m " + ss + "s\n💾 RAM: " + mem + " MB\n📦 Node: " + process.version + "\n🤖 " + global.BotName);
+          break;
+        }
+      case "id":
+      case "jid":
+      case "chatid":
+      case "groupid":
+        {
+          await _0x5b1b57("🆔 *CHAT ID*\n\n" + _0x11be99.chat + (_0x11be99.isGroup ? "\n👥 Group: Yes" : "\n👤 Private: Yes"));
+          break;
+        }
+      case "botinfo":
+      case "info":
+        {
+          await _0x5b1b57("╔═══════❖═══════╗\n   🤖 *" + global.BotName + "*\n╚═══════❖═══════╝\n\n👑 *Owner:* " + global.Developer + "\n⚙️ *Prefix:* .\n🌍 *Mode:* Public\n🕒 *Time:* " + moment().tz("Asia/Karachi").format("hh:mm A") + "\n📅 *Date:* " + moment().tz("Asia/Karachi").format("DD/MM/YYYY") + "\n\n✨ Use *.menu* for all commands.");
+          break;
+        }
+      case "calc":
+      case "calculate":
+        {
+          if (!_0x74101d) return _0x5b1b57("🧮 *Usage:* .calc 25*4\n*Supported:* +  -  *  /  %  ( )");
+          const expr = _0x74101d.replace(/\s+/g, "");
+          if (!/^[0-9+\-*/%.()]+$/.test(expr) || expr.length > 80) return _0x5b1b57("❌ Invalid calculation.");
+          try {
+            const result = Function('"use strict"; return (' + expr + ')')();
+            if (!Number.isFinite(result)) throw new Error("Invalid result");
+            await _0x5b1b57("🧮 *CALCULATOR*\n\n📌 " + expr + " = *" + result + "*");
+          } catch {
+            await _0x5b1b57("❌ Could not calculate that expression.");
+          }
+          break;
+        }
+      case "upper":
+      case "uppercase":
+        {
+          if (!_0x74101d) return _0x5b1b57("🔤 *Usage:* .upper your text");
+          await _0x5b1b57("🔤 *UPPERCASE*\n\n" + _0x74101d.toUpperCase());
+          break;
+        }
+      case "lower":
+      case "lowercase":
+        {
+          if (!_0x74101d) return _0x5b1b57("🔡 *Usage:* .lower YOUR TEXT");
+          await _0x5b1b57("🔡 *lowercase*\n\n" + _0x74101d.toLowerCase());
+          break;
+        }
+      case "reverse":
+      case "rev":
+        {
+          if (!_0x74101d) return _0x5b1b57("🔄 *Usage:* .reverse your text");
+          await _0x5b1b57("🔄 *REVERSED*\n\n" + Array.from(_0x74101d).reverse().join(""));
+          break;
+        }
+      case "8ball":
+      case "ask":
+        {
+          if (!_0x74101d) return _0x5b1b57("🎱 *Usage:* .8ball Will my video go viral?");
+          const answers = ["✨ Definitely!", "🔥 Looking very good!", "😎 Most likely!", "🤔 Maybe, keep trying!", "💫 Ask again later!", "😂 The bot says: impossible to know!"];
+          await _0x5b1b57("🎱 *MAGIC 8-BALL*\n\n❓ " + _0x74101d + "\n\n💬 " + answers[Math.floor(Math.random() * answers.length)]);
+          break;
+        }
+      case "date":
+      case "today":
+        {
+          const now = moment().tz("Asia/Karachi");
+          await _0x5b1b57("📅 *TODAY*\n━━━━━━━━━━━━━━\n" + now.format("dddd, DD MMMM YYYY") + "\n🇵🇰 Pakistan (Asia/Karachi)");
+          break;
+        }
+      case "timestamp":
+      case "unix":
+        {
+          const now = Date.now();
+          await _0x5b1b57("⏱️ *TIMESTAMP*\n\n🕐 " + now + "\n📅 " + moment(now).tz("Asia/Karachi").format("DD/MM/YYYY hh:mm:ss A"));
+          break;
+        }
+      case "coin":
+      case "flip":
+        {
+          await _0x5b1b57("🪙 *COIN FLIP*\n\n" + (Math.random() < 0.5 ? "🟡 HEADS" : "⚪ TAILS"));
+          break;
+        }
+      case "dice":
+      case "roll":
+        {
+          const sides = Number(_0x74101d || 6);
+          if (!Number.isInteger(sides) || sides < 2 || sides > 100) return _0x5b1b57("🎲 *Usage:* .dice 6\nChoose sides from 2 to 100.");
+          const result = Math.floor(Math.random() * sides) + 1;
+          await _0x5b1b57("🎲 *DICE ROLL*\n\n🎯 Sides: " + sides + "\n✨ Result: *" + result + "*");
+          break;
+        }
+      case "random":
+      case "rand":
+        {
+          const parts = _0x74101d.split(/\s+/).filter(Boolean);
+          const min = parts.length >= 2 ? Number(parts[0]) : 1;
+          const max = parts.length >= 2 ? Number(parts[1]) : Number(parts[0] || 100);
+          if (!Number.isFinite(min) || !Number.isFinite(max) || min > max || Math.abs(max - min) > 1000000000) return _0x5b1b57("🎯 *Usage:* .random 1 100");
+          const result = Math.floor(Math.random() * (max - min + 1)) + min;
+          await _0x5b1b57("🎯 *RANDOM NUMBER*\n\n🔢 Range: " + min + " → " + max + "\n✨ Result: *" + result + "*");
+          break;
+        }
+      case "choose":
+      case "pick":
+        {
+          if (!_0x74101d) return _0x5b1b57("🎯 *Usage:* .choose red | blue | green");
+          const choices = _0x74101d.split(/\s*\|\s*/).map(x => x.trim()).filter(Boolean);
+          if (choices.length < 2) return _0x5b1b57("🎯 Give at least 2 choices separated by *|*");
+          const picked = choices[Math.floor(Math.random() * choices.length)];
+          await _0x5b1b57("🎯 *CHOICE PICKER*\n\n📋 Options: " + choices.length + "\n✨ Picked: *" + picked + "*");
+          break;
+        }
+      case "count":
+      case "wordcount":
+        {
+          if (!_0x74101d) return _0x5b1b57("🔢 *Usage:* .count your text here");
+          const words = _0x74101d.trim().split(/\s+/).filter(Boolean).length;
+          const chars = Array.from(_0x74101d).length;
+          await _0x5b1b57("🔢 *TEXT COUNT*\n\n📝 Words: " + words + "\n🔤 Characters: " + chars + "\n📏 Length: " + _0x74101d.length);
+          break;
+        }
+      case "base64":
+      case "b64":
+        {
+          if (!_0x74101d) return _0x5b1b57("🔐 *Usage:* .base64 Hello Rizo");
+          const encoded = Buffer.from(_0x74101d, "utf8").toString("base64");
+          await _0x5b1b57("🔐 *BASE64 ENCODE*\n\n" + encoded);
+          break;
+        }
+      case "unbase64":
+      case "decode64":
+      case "deb64":
+        {
+          if (!_0x74101d) return _0x5b1b57("🔓 *Usage:* .decode64 SGVsbG8=");
+          try {
+            const input = _0x74101d.replace(/\s+/g, "");
+            if (!/^[A-Za-z0-9+/]*={0,2}$/.test(input) || input.length % 4 !== 0) throw new Error("Invalid Base64");
+            const decoded = Buffer.from(input, "base64").toString("utf8");
+            if (!decoded) throw new Error("Empty result");
+            await _0x5b1b57("🔓 *BASE64 DECODE*\n\n" + decoded);
+          } catch {
+            await _0x5b1b57("❌ Invalid Base64 text.");
+          }
+          break;
+        }
+      case "urlencode":
+      case "encodeurl":
+        {
+          if (!_0x74101d) return _0x5b1b57("🔗 *Usage:* .urlencode Hello World");
+          await _0x5b1b57("🔗 *URL ENCODE*\n\n" + encodeURIComponent(_0x74101d));
+          break;
+        }
+      case "urldecode":
+      case "decodeurl":
+        {
+          if (!_0x74101d) return _0x5b1b57("🔓 *Usage:* .urldecode Hello%20World");
+          try {
+            await _0x5b1b57("🔓 *URL DECODE*\n\n" + decodeURIComponent(_0x74101d));
+          } catch {
+            await _0x5b1b57("❌ Invalid URL-encoded text.");
+          }
+          break;
+        }
+      case "yesno":
+        {
+          await _0x5b1b57("🔮 *YES / NO*\n\n✨ Answer: *" + (Math.random() < 0.5 ? "YES ✅" : "NO ❌") + "*");
+          break;
+        }
+      case "say":
+      case "echo":
+        {
+          if (!_0x74101d) return _0x5b1b57("🗣️ *Usage:* .say Hello everyone");
+          await _0x5b1b57("🗣️ " + _0x74101d);
+          break;
+        }
       case "allmenu":
       case "listcmnd":
       case "getcmnd":
       case "list":
         {
           try {
-            const _0x12c732 = "\n╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + "* ✧⎠⎠\n║┃\n║┃➳ *OWNER:*  " + global.Developer + "\n║┃➳ *VERSION:* v2.0.0\n║┃➳ *PREFIX:* .\n║┃➳ *USER:*   " + (_0x2ea648 || "Guest") + "\n║┃➳ *TIME:*   " + moment().tz("Asia/Karachi").format("hh:mm A") + "\n║┃➳ *DATE:*   " + moment().tz("Asia/Karachi").format("DD/MM/YYYY") + "\n║┃➳ *MODE:*   🌍 Public\n║┃\n║┃ ```rizo-toxic-md.vercel.app```\n║┃───⎝⎝ 📥 𝘿𝙊𝙒𝙉𝙇𝙊𝘼𝘿\n║┃➳ *.audio*    →  Song/MP3\n║┃➳ *.video*    →  Video/MP4\n║┃➳ *.audio2*   →  Song V2\n║┃➳ *.video2*   →  Video V2\n║┃➳ *.tt*       →  TikTok DL\n║┃➳ *.tt2*      →  TikTok V2\n║┃➳ *.ig*       →  Instagram\n║┃➳ *.fb*       →  Facebook\n║┃➳ *.spotify*  →  Spotify DL\n║┃➳ *.spsong*   →  Spotify Search\n║┃\n║┃───⎝⎝ 🎨 𝙏𝙀𝙓𝙏 𝙀𝙁𝙁𝙀𝘾𝙏𝙎 (30+)\n║┃➳ *.glitchtext*     *.writetext*\n║┃➳ *.advancedglow*   *.typographytext*\n║┃➳ *.pixelglitch*    *.neonglitch*\n║┃➳ *.flagtext*       *.flag3dtext*\n║┃➳ *.deletingtext*   *.blackpinkstyle*\n║┃➳ *.glowingtext*    *.underwatertext*\n║┃➳ *.logomaker*      *.cartoonstyle*\n║┃➳ *.papercutstyle*  *.watercolortext*\n║┃➳ *.effectclouds*   *.blackpinklogo*\n║┃➳ *.gradienttext*   *.summerbeach*\n║┃➳ *.luxurygold*     *.multicoloyellowneon*\n║┃➳ *.sandsummer*     *.galaxywallpaper*\n║┃➳ *.1917style*      *.makingneon*\n║┃➳ *.royaltext*      *.freecreate*\n║┃➳ *.galaxystyle*    *.lighteffects*\n║┃\n║┃───⎝⎝ 🔧 𝙏𝙊𝙊𝙇𝙎\n║┃➳ *.sticker*   →  Image to Sticker\n║┃➳ *.toimg*    →  Sticker to Image\n║┃➳ *.tomp3*    →  Video to Audio\n║┃➳ *.tourl*    →  Upload to URL\n║┃➳ *.hd*       →  HD Image Enhancer\n║┃➳ *.hd2*      →  HD Enhancer V2\n║┃➳ *.remini*   →  Image Upscale\n║┃➳ *.uhd*      →  Ultra HD 4K\n║┃➳ *.vv*       →  View Once Reply\n║┃➳ *.vv2*      →  Forward to Owner\n║┃➳ *.dp*       →  Get DP\n║┃➳ *.dpx*      →  Get DP (API)\n║┃\n║┃───⎝⎝ 👥 𝙂𝙍𝙊𝙐𝙋\n║┃➳ *.gcreate*    →  Create Group\n║┃➳ *.gleave*     →  Leave Group\n║┃➳ *.join*       →  Join by Code\n║┃➳ *.invitelink* →  Group Invite Link\n║┃➳ *.revoke*     →  Revoke Link\n║┃➳ *.gadd*       →  Add Member\n║┃➳ *.gremove*    →  Remove Member\n║┃➳ *.gpromote*   →  Promote Admin\n║┃➳ *.gdemote*    →  Demote Admin\n║┃➳ *.ginfo*      →  Group Info\n║┃➳ *.groupset*   →  Group Settings\n║┃➳ *.updategroup*→  Update Group Name/Desc\n║┃➳ *.tagall*     →  Tag All Members\n║┃➳ *.hidetag*    →  Hidden Tag All\n║┃➳ *.setgname*   →  Quick Group Name\n║┃➳ *.setgdesc*   →  Quick Group Desc\n║┃➳ *.setgpp*     →  Set Group Icon\n║┃➳ *.lockgroup*  →  Admins Only Mode\n║┃➳ *.unlockgroup*→  Everyone Can Send\n║┃➳ *.listadmins* →  List Group Admins\n║┃➳ *.groupmembers*→ List All Members\n║┃➳ *.antilink*   →  Toggle Antilink On/Off\n║┃\n║┃───⎝⎝ ⚙️ 𝙎𝙀𝙏𝙏𝙄𝙉𝙂𝙎\n║┃➳ *.autoreact-on*   *.autoreact-off*\n║┃➳ *.antidelete-on*  *.antidelete-off*\n║┃➳ *.autoview-on*    *.autoview-off*\n║┃➳ *.public*    *.self*\n║┃➳ *.settings*  *.mysettings*\n║┃\n║┃───⎝⎝ 👤 𝙋𝙍𝙊𝙁𝙄𝙇𝙀\n║┃➳ *.setname*   →  Change Bot Name\n║┃➳ *.setpp*     →  Set Profile Pic\n║┃➳ *.delpp*     →  Remove Profile Pic\n║┃➳ *.getpp*     →  Get Profile Pic\n║┃\n║┃───⎝⎝ 📰 𝙉𝙀𝙒𝙎𝙇𝙀𝙏𝙏𝙀𝙍\n║┃➳ *.follow*    →  Follow Newsletter\n║┃➳ *.unfollow*  →  Unfollow Newsletter\n║┃➳ *.ninfo*     →  Newsletter Info\n║┃➳ *.reactch*   →  React to Channel Post\n║┃\n║┃───⎝⎝ 📱 𝘿𝘼𝙏𝘼𝘽𝘼𝙎𝙀\n║┃➳ *.sim*       →  SIM Info\n║┃➳ *.cnic*      →  CNIC Info\n║┃➳ *.simdetail* →  SIM Detail\n║┃\n║┃───⎝⎝ 🛠️ 𝙈𝙄𝙎𝘾\n║┃➳ *.ping*      →  Check Latency\n║┃➳ *.owner*     →  Bot Owner\n║┃➳ *.channel*   →  Updates Channel\n║┃➳ *.checkidd*  →  Chat ID\n║┃➳ *.pair*      →  Pair Device\n║┃➳ *.dis-conn*  →  Disconnect Session\n║┃➳ *.baileys*   →  List Baileys Functions\n║┃\n║╰────•\n╚══════─── • ───════╝\n> powered by *" + global.Developer + " 🔥*\n";
+            const _0x12c732 = "\n╔══════─── • ───════╗\n║╭────•\n║┃───⎝⎝✧ *" + global.BotName + "* ✧⎠⎠\n║┃\n║┃➳ *OWNER:*  " + global.Developer + "\n║┃➳ *VERSION:* v2.0.0\n║┃➳ *PREFIX:* .\n║┃➳ *USER:*   " + (_0x2ea648 || "Guest") + "\n║┃➳ *TIME:*   " + moment().tz("Asia/Karachi").format("hh:mm A") + "\n║┃➳ *DATE:*   " + moment().tz("Asia/Karachi").format("DD/MM/YYYY") + "\n║┃➳ *MODE:*   🌍 Public\n║┃\n║┃ ```rizo-toxic-md.vercel.app```\n║┃───⎝⎝ 📥 𝘿𝙊𝙒𝙉𝙇𝙊𝘼𝘿\n║┃➳ *.audio*    →  Song/MP3\n║┃➳ *.video*    →  Video/MP4\n║┃➳ *.video360* →  360p Video\n║┃➳ *.video480* →  480p Video\n║┃➳ *.video720* →  720p HD Video\n║┃➳ *.vhd*      →  720p HD Video\n║┃➳ *.hdvideo*  →  Reply Video → HD Enhance\n║┃➳ *.videoenhance* → Sharpen + Upscale\n║┃➳ *.upscale720*  →  HD 720p\n║┃➳ *.upscale1080* →  Up to 1080p\n║┃➳ *.audio2*   →  Song V2\n║┃➳ *.video2*   →  Video V2\n║┃➳ *.tt*       →  TikTok DL\n║┃➳ *.tt2*      →  TikTok V2\n║┃➳ *.ig*       →  Instagram\n║┃➳ *.fb*       →  Facebook\n║┃➳ *.spotify*  →  Spotify DL\n║┃➳ *.spsong*   →  Spotify Search\n║┃\n║┃───⎝⎝ 🎨 𝙏𝙀𝙓𝙏 𝙀𝙁𝙁𝙀𝘾𝙏𝙎 (30+)\n║┃➳ *.glitchtext*     *.writetext*\n║┃➳ *.advancedglow*   *.typographytext*\n║┃➳ *.pixelglitch*    *.neonglitch*\n║┃➳ *.flagtext*       *.flag3dtext*\n║┃➳ *.deletingtext*   *.blackpinkstyle*\n║┃➳ *.glowingtext*    *.underwatertext*\n║┃➳ *.logomaker*      *.cartoonstyle*\n║┃➳ *.papercutstyle*  *.watercolortext*\n║┃➳ *.effectclouds*   *.blackpinklogo*\n║┃➳ *.gradienttext*   *.summerbeach*\n║┃➳ *.luxurygold*     *.multicoloyellowneon*\n║┃➳ *.sandsummer*     *.galaxywallpaper*\n║┃➳ *.1917style*      *.makingneon*\n║┃➳ *.royaltext*      *.freecreate*\n║┃➳ *.galaxystyle*    *.lighteffects*\n║┃\n║┃───⎝⎝ 🔧 𝙏𝙊𝙊𝙇𝙎\n║┃➳ *.sticker*   →  Image to Sticker\n║┃➳ *.toimg*    →  Sticker to Image\n║┃➳ *.tomp3*    →  Video to Audio\n║┃➳ *.tourl*    →  Upload to URL\n║┃➳ *.hd*       →  HD Image Enhancer\n║┃➳ *.hd2*      →  HD Enhancer V2\n║┃➳ *.remini*   →  Image Upscale\n║┃➳ *.uhd*      →  Ultra HD 4K\n║┃➳ *.vv*       →  View Once Reply\n║┃➳ *.vv2*      →  Forward to Owner\n║┃➳ *.dp*       →  Get DP\n║┃➳ *.dpx*      →  Get DP (API)\n║┃\n║┃───⎝⎝ 👥 𝙂𝙍𝙊𝙐𝙋\n║┃➳ *.gcreate*    →  Create Group\n║┃➳ *.gleave*     →  Leave Group\n║┃➳ *.join*       →  Join by Code\n║┃➳ *.invitelink* →  Group Invite Link\n║┃➳ *.revoke*     →  Revoke Link\n║┃➳ *.gadd*       →  Add Member\n║┃➳ *.gremove*    →  Remove Member\n║┃➳ *.gpromote*   →  Promote Admin\n║┃➳ *.gdemote*    →  Demote Admin\n║┃➳ *.ginfo*      →  Group Info\n║┃➳ *.groupset*   →  Group Settings\n║┃➳ *.updategroup*→  Update Group Name/Desc\n║┃➳ *.tagall*     →  Tag All Members\n║┃➳ *.hidetag*    →  Hidden Tag All\n║┃➳ *.setgname*   →  Quick Group Name\n║┃➳ *.setgdesc*   →  Quick Group Desc\n║┃➳ *.setgpp*     →  Set Group Icon\n║┃➳ *.lockgroup*  →  Admins Only Mode\n║┃➳ *.unlockgroup*→  Everyone Can Send\n║┃➳ *.listadmins* →  List Group Admins\n║┃➳ *.groupmembers*→ List All Members\n║┃➳ *.antilink*   →  Toggle Antilink On/Off\n║┃\n║┃───⎝⎝ ⚙️ 𝙎𝙀𝙏𝙏𝙄𝙉𝙂𝙎\n║┃➳ *.autoreact-on*   *.autoreact-off*\n║┃➳ *.antidelete-on*  *.antidelete-off*\n║┃➳ *.autoview-on*    *.autoview-off*\n║┃➳ *.public*    *.self*\n║┃➳ *.settings*  *.mysettings*\n║┃\n║┃───⎝⎝ 👤 𝙋𝙍𝙊𝙁𝙄𝙇𝙀\n║┃➳ *.setname*   →  Change Bot Name\n║┃➳ *.setpp*     →  Set Profile Pic\n║┃➳ *.delpp*     →  Remove Profile Pic\n║┃➳ *.getpp*     →  Get Profile Pic\n║┃\n║┃───⎝⎝ 📰 𝙉𝙀𝙒𝙎𝙇𝙀𝙏𝙏𝙀𝙍\n║┃➳ *.follow*    →  Follow Newsletter\n║┃➳ *.unfollow*  →  Unfollow Newsletter\n║┃➳ *.ninfo*     →  Newsletter Info\n║┃➳ *.reactch*   →  React to Channel Post\n║┃\n║┃───⎝⎝ 📱 𝘿𝘼𝙏𝘼𝘽𝘼𝙎𝙀\n║┃➳ *.sim*       →  SIM Info\n║┃➳ *.cnic*      →  CNIC Info\n║┃➳ *.simdetail* →  SIM Detail\n║┃\n║┃───⎝⎝ 🛠️ 𝙈𝙄𝙎𝘾\n║┃➳ *.ping*      →  Check Latency\n║┃➳ *.time*      →  Pakistan Time\n║┃➳ *.runtime*   →  Bot Uptime & RAM\n║┃➳ *.id*        →  Chat ID\n║┃➳ *.botinfo*   →  Bot Information\n║┃➳ *.calc*      →  Calculator\n║┃➳ *.upper*     →  Uppercase Text\n║┃➳ *.lower*     →  Lowercase Text\n║┃➳ *.reverse*   →  Reverse Text\n║┃➳ *.8ball*     →  Magic 8-Ball\n║┃➳ *.date*      →  Today\n║┃➳ *.timestamp* →  Unix Timestamp\n║┃➳ *.coin*      →  Coin Flip\n║┃➳ *.dice*      →  Dice Roll\n║┃➳ *.random*    →  Random Number\n║┃➳ *.choose*    →  Pick One Option\n║┃➳ *.count*     →  Word/Character Count\n║┃➳ *.base64*    →  Encode Text\n║┃➳ *.decode64*  →  Decode Base64\n║┃➳ *.urlencode* →  Encode URL Text\n║┃➳ *.urldecode* →  Decode URL Text\n║┃➳ *.yesno*     →  Yes / No\n║┃➳ *.say*       →  Echo Text\n║┃➳ *.owner*     →  Bot Owner\n║┃➳ *.channel*   →  Updates Channel\n║┃➳ *.checkidd*  →  Chat ID\n║┃➳ *.pair*      →  Pair Device\n║┃➳ *.dis-conn*  →  Disconnect Session\n║┃➳ *.baileys*   →  List Baileys Functions\n║┃\n║╰────•\n╚══════─── • ───════╝\n> powered by *" + global.Developer + " 🔥*\n";
             await _0x106db2.sendMessage(_0x11be99.chat, {
-              image: {
-                url: "https://files.catbox.moe/3mnhrl.jpg"
-              },
+              image: fs.existsSync(MENU_IMAGE_PATH) ? fs.readFileSync(MENU_IMAGE_PATH) : { url: MENU_IMAGE_URL },
               caption: _0x12c732
             }, {
               quoted: _0x11be99
