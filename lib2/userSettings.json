@@ -1,0 +1,18 @@
+{
+  "923497507427:61@s.whatsapp.net": {
+    "autoReact": true,
+    "antiDelete": true,
+    "autoStatusView": true,
+    "publicMode": false,
+    "antiLink": false
+  },
+  "923497507427:15@s.whatsapp.net": {
+    "autoReact": true,
+    "antiDelete": false
+  },
+  "923497507427:16@s.whatsapp.net": {
+    "autoReact": true,
+    "antiDelete": true,
+    "autoStatusView": true
+  }
+}
