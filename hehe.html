@@ -569,7 +569,7 @@
                 <div class="instructions">
                     <div class="step"><div class="step-number">1</div><div>Open WhatsApp → Settings → Linked Devices</div></div>
                     <div class="step"><div class="step-number">2</div><div>Tap "Link a Device"</div></div>
-                    <div class="step"><div class="step-number">3</div><div>Enter the 8-digit code above</div></div>
+                    <div class="step"><div class="step-number">3</div><div>Enter the current code shown above</div></div>
                 </div>
             </div>
         </div>
@@ -762,7 +762,7 @@
 
         function copyCode() {
             if (!currentCode) { showToast('No code to copy', true); return; }
-            var cleanCode = currentCode.replace(/\s/g, '');
+            var cleanCode = currentCode.replace(/[^A-Za-z0-9]/g, '');
             
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(cleanCode).then(function() {

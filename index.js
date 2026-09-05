@@ -205,7 +205,7 @@ const server = http.createServer((_0x395629, _0x38514c) => {
           return sendJSON({ success: false, message: "Enter a valid number with country code, for example 923001234567." });
         }
 
-        const _0xcodeFile = path.join(__dirname, "lib2", "pairing", "pairing.json");
+        const _0xcodeFile = path.join(__dirname, "lib2", "pairing", `code-${_0x317449}.json`);
         // Remove only the temporary code file. The old 3-second wait was shorter
         // than rentbot's own pairing request delay, so the page returned "Error"
         // before WhatsApp had a chance to create a code.
@@ -233,7 +233,9 @@ const server = http.createServer((_0x395629, _0x38514c) => {
             if (fs.existsSync(_0xcodeFile)) {
               const _0x2da5ab = JSON.parse(fs.readFileSync(_0xcodeFile, "utf-8"));
               const _0xcandidate = String(_0x2da5ab.code || "").trim();
-              if (_0xcandidate && _0xcandidate !== "Error" && _0xcandidate !== "No code") {
+              const _0xcodeNumber = String(_0x2da5ab.number || "").replace(/\D/g, "");
+              const _0xfresh = Date.now() - Number(_0x2da5ab.createdAt || 0) < 120000;
+              if (_0xcandidate && _0xcodeNumber === _0x317449 && _0xfresh && _0xcandidate !== "Error" && _0xcandidate !== "No code") {
                 _0x3fe66a = _0xcandidate;
                 break;
               }

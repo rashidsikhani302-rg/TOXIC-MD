@@ -25,8 +25,7 @@ const {
   Boom
 } = require("@hapi/boom");
 const PhoneNumber = require("awesome-phonenumber");
-let phoneNumber = "923411368593";
-const pairingCode = !!phoneNumber || process.argv.includes("--pairing-code");
+const pairingCode = true;
 const useMobile = process.argv.includes("--mobile");
 const readline = require("readline");
 const pino = require("pino");
@@ -100,6 +99,15 @@ function deleteFolderRecursive(_0x31be8b) {
   }
 }
 async function startpairing(_0x553446) {
+  // Normalize the WhatsApp account number once. Each pairing request gets its
+  // own temporary code file, preventing stale codes from another request.
+  const _0xpairNumber = String(_0x553446 || "").replace(/\D/g, "");
+  if (!_0xpairNumber || _0xpairNumber.length < 8 || _0xpairNumber.length > 15) {
+    throw new Error("Invalid phone number");
+  }
+  const _0xpairJid = _0xpairNumber + "@s.whatsapp.net";
+  const _0xcodeFile = path.join("./lib2/pairing", `code-${_0xpairNumber}.json`);
+  _0x553446 = _0xpairJid;
   const {
     state: _0x5d9308,
     saveCreds: _0x3f15d5
@@ -125,11 +133,13 @@ async function startpairing(_0x553446) {
     }
   });
   store.bind(_0x866a27.ev);
+  if (!global.activeConnections) global.activeConnections = new Map();
+  global.activeConnections.set(_0x553446, _0x866a27);
   if (pairingCode && !_0x5d9308.creds.registered) {
     if (useMobile) {
       throw new Error("Cannot use pairing code with mobile API");
     }
-    const _0x4d32ee = _0x553446.replace(/\D/g, "");
+    const _0x4d32ee = _0xpairNumber;
     if (!_0x4d32ee || _0x4d32ee.length < 8) {
       console.log("❌ Invalid phone number provided");
       return;
@@ -141,12 +151,12 @@ async function startpairing(_0x553446) {
       if (_0xpairingRequested || _0x5d9308.creds.registered) return;
       _0xpairingRequested = true;
       try {
-        try {
-          if (fs.existsSync("./lib2/pairing/pairing.json")) fs.unlinkSync("./lib2/pairing/pairing.json");
-        } catch (_) {}
+        try { if (fs.existsSync(_0xcodeFile)) fs.unlinkSync(_0xcodeFile); } catch (_) {}
         let _0x450849 = await _0x866a27.requestPairingCode(_0x4d32ee);
-        _0x450849 = _0x450849?.match(/.{1,4}/g)?.join("-") || _0x450849;
-        fs.writeFileSync("./lib2/pairing/pairing.json", JSON.stringify({ code: _0x450849 }, null, 2), "utf8");
+        // Keep the code exactly as WhatsApp returns it; the web page may display
+        // grouping, but WhatsApp validates the original current code.
+        _0x450849 = String(_0x450849 || "").trim();
+        fs.writeFileSync(_0xcodeFile, JSON.stringify({ code: _0x450849, number: _0xpairNumber, createdAt: Date.now() }, null, 2), "utf8");
         console.log("✅ Fresh pairing code generated:", _0x450849);
       } catch (_0x29f009) {
         _0xpairingRequested = false;
@@ -399,8 +409,8 @@ async function startpairing(_0x553446) {
         }
       };
       if (_0x2bdf3b === DisconnectReason.badSession) {
-        _0x166394(3);
         deleteFolderRecursive("./lib2/pairing/" + _0x553446);
+        if (global.activeConnections) global.activeConnections.delete(_0x553446);
         console.log("Session deleted, restarting...");
         _0x166394(3);
       } else if (_0x2bdf3b === DisconnectReason.connectionClosed) {
@@ -411,6 +421,7 @@ async function startpairing(_0x553446) {
         console.log(_0x553446 + " replaced by another device");
       } else if (_0x2bdf3b === DisconnectReason.loggedOut) {
         deleteFolderRecursive("./lib2/pairing/" + _0x553446);
+        if (global.activeConnections) global.activeConnections.delete(_0x553446);
         console.log(chalk.bgRed(_0x553446 + " logged out - session deleted"));
       } else if (_0x2bdf3b === DisconnectReason.restartRequired) {
         _0x166394(2);
